@@ -1,0 +1,83 @@
+<!--
+	To test the connection and html page without having to flash the uC all the time use this file 
+	and the dummy server 'server.py'. Make sure to change the websocket ip back, when copying stuff
+	from here to the code.
+-->
+<!DOCTYPE html>
+<html>
+<head>
+<meta name = "viewport" content = "width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0">
+<title>MagLoop Remote Tuner</title>
+<style>
+body { background-color: #aaa; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; margin: 0 auto; width: auto; max-width: 20em }
+a { text-decoration: none; display: inline-block; padding: 8px 16px; font-size: 25pt}
+a:hover { background-color: #ccc; color: black; }
+.stepbutton { border-radius: 35%; background-color: #f1f1f1; color: black; }
+.buttons { width:5em; flex-grow:1; text-align: center; }
+.status  { width:5em; flex-grow:1; text-align: center; }
+.statusbubble  { border-radius: 100%; background-color: gray; width: 1.5em; height: 1.5em; margin: 0 auto; }
+.good { background-color: green; }
+.neutral { background-color: gray; }
+.bad  { background-color: red; }
+</style>
+<script>
+var websock;
+function start() {
+  websock = new WebSocket('ws://' + "127.0.0.1" + ':9001/');
+  websock.onopen = function(evt) { console.log('websock open'); document.querySelector("#connection").classList.replace("bad", "good"); };
+  websock.onclose = function(evt) { console.log('websock close'); document.querySelector("#connection").classList.replace("good", "bad"); };
+  websock.onerror = function(evt) { console.log(evt); };
+  websock.onmessage = function(evt) { console.log(evt); handleEndstops(evt); };
+}
+function buttonclick(e) {
+  websock.send(e.id);
+}
+function handleEndstops(e) {
+  if(e.data == "endstop_up") {
+  	document.querySelector("#endstop_up").classList.add("bad");
+  }
+  else if (e.data == "endstop_down") {
+  	document.querySelector("#endstop_down").classList.add("bad");
+  }
+  else if (e.data == "endstop_ok") {
+  	document.querySelector("#endstop_up").classList.remove("bad");
+  	document.querySelector("#endstop_down").classList.remove("bad");
+  }
+}
+</script>
+</head>
+<body onload="javascript:start();">
+<h1 style="text-align: center;">MagLoop Tuner</h1>
+<div id=container style="display:flex; justify-content: flex-end;">
+<div class="buttons">
+<a href="#" id="up_1"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+<p>1</p>
+<a href="#" id="down_1" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+</div>
+<div class="buttons">
+<a href="#" id="up_10"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+<p>10</p>
+<a href="#" id="down_10" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+</div>
+<div class="buttons">
+<a href="#" id="up_100"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+<p>100</p>
+<a href="#" id="down_100" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+</div>
+</div>
+<div id=container style="display:flex; justify-content: flex-end; margin-top: 3em">
+	<div class="status">
+		<p>endstop</p>
+		<div id=endstop_down class="statusbubble neutral"></div>
+		<p style="font-size:8pt">low cap</p>
+	</div>
+	<div class="status">
+		<p>Connection</p>
+		<div id=connection class="statusbubble bad"></div>
+	</div>
+	<div class="status">
+		<p>endstop</p>
+		<div id=endstop_up class="statusbubble neutral"></div>
+		<p style="font-size:8pt">high cap</p>
+	</div>
+</div>
