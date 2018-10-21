@@ -52,11 +52,10 @@ a:hover { background-color: #ccc; color: black; }
 <script>
 var websock;
 var maxSteps = 5900; // whole cap is 5900 steps
-var pos80m   = 1800; // rough pos of 80m tune area
-var pos40m   = 900;  // rough pos of 80m tune area
-var pos30m   = 650;  // rough pos of 80m tune area
-var pos20m   = 450;  // rough pos of 80m tune area
-var pos10m   = 200;  // rough pos of 80m tune area
+var pos40m   = 4000;  // rough pos of 80m tune area
+var pos30m   = 2800;  // rough pos of 80m tune area
+var pos20m   = 1700; // rough pos of 80m tune area
+var pos10m   = 850;  // rough pos of 80m tune area
 
 function start() {
   websock = new WebSocket('ws://' + window.location.hostname + ':81/');
@@ -89,7 +88,6 @@ function drawBands() {
   var ctx = canvas.getContext("2d");
   // draw rough estimates for the bands
   ctx.font = "10px sans-serif";
-  ctx.fillText("80m", pos80m / maxSteps * canvas.width, 45);
   ctx.fillText("40m", pos40m / maxSteps * canvas.width, 45);
   ctx.fillText("30m", pos30m / maxSteps * canvas.width, 45);
   ctx.fillText("20m", pos20m / maxSteps * canvas.width, 45);
