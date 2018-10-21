@@ -4,19 +4,18 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <CheapStepper.h>
+#include <EEPROM.h>
 
 #define motorPin1 D0 // D5 <-> IN1 on the ULN2003 driver 1
 #define motorPin2 D1 // D6 <-> IN2 on the ULN2003 driver 1
 #define motorPin3 D2 // D7 <-> IN3 on the ULN2003 driver 1
 #define motorPin4 D3 // D8 <-> IN4 on the ULN2003 driver 1
 
-#define endstopPin D5 // endstop for lowest capacitance
-
 #define maxSteps 5900 // max number of steps until stepper reaches upper end of the cap
 
 // Wifi config
-const char* ssid     = "myssid";    // YOUR WIFI SSID
-const char* password = "mypw";    // YOUR WIFI PASSWORD 
+const char* ssid     = "Abraham Linksys";    // YOUR WIFI SSID
+const char* password = "stinktierfabrik";    // YOUR WIFI PASSWORD 
 const unsigned long endstopDebounce = 50;    // debounce time for endstops in ms
 
 ESP8266WebServer  server(80);
@@ -52,11 +51,10 @@ a:hover { background-color: #ccc; color: black; }
 <script>
 var websock;
 var maxSteps = 5900; // whole cap is 5900 steps
-var pos80m   = 1800; // rough pos of 80m tune area
-var pos40m   = 900;  // rough pos of 80m tune area
-var pos30m   = 650;  // rough pos of 80m tune area
-var pos20m   = 450;  // rough pos of 80m tune area
-var pos10m   = 200;  // rough pos of 80m tune area
+var pos40m   = 4000;  // rough pos of 80m tune area
+var pos30m   = 2800;  // rough pos of 80m tune area
+var pos20m   = 1700; // rough pos of 80m tune area
+var pos10m   = 850;  // rough pos of 80m tune area
 
 function start() {
   websock = new WebSocket('ws://' + window.location.hostname + ':81/');
@@ -89,7 +87,6 @@ function drawBands() {
   var ctx = canvas.getContext("2d");
   // draw rough estimates for the bands
   ctx.font = "10px sans-serif";
-  ctx.fillText("80m", pos80m / maxSteps * canvas.width, 45);
   ctx.fillText("40m", pos40m / maxSteps * canvas.width, 45);
   ctx.fillText("30m", pos30m / maxSteps * canvas.width, 45);
   ctx.fillText("20m", pos20m / maxSteps * canvas.width, 45);
@@ -320,27 +317,16 @@ void init_mdns() {
   Serial.println("Connect to http://maglooptuner.local or http://");
 }
 
-void readEndstops()
+void home()
 {
-  if(millis() - endstopPresstime > endstopDebounce) {
-    endstop = !digitalRead(endstopPin);
-    endstopPresstime = millis();
+  Serial.println("Homing, reset when done");
+  EEPROM.put(0, 0);
+  EEPROM.commit();
+  while(true)
+  {
+    stepper.step(false);
+    yield();
   }
-}
-
-// home stepper and move back to initial position to get absolute_step number
-void home() {
-  uint32_t steps_to_move_back = 0;
-  Serial.println("homing...");
-
-  while(!endstop) {
-    readEndstops();
-    stepper.step(false); // move anti-clockwise
-    yield(); // prevent wdt soft reset
-    steps_to_move_back++;
-  }
-  Serial.println("low endstop reached. moving back");
-  stepsRemaining = steps_to_move_back;
 }
 
 void setup()
@@ -348,12 +334,12 @@ void setup()
   Serial.begin(115200);
   Serial.println("begin");
   delay(10);
+
+  EEPROM.begin(512);
+  EEPROM.get(0, absolute_steps);
   
   stepper.setRpm(10); // for max possible torque without overheating
 
-  // setup endstop
-  pinMode(endstopPin, INPUT_PULLUP);
-  
   // Connect to WiFi network
   Serial.println();
   Serial.println();
@@ -372,20 +358,19 @@ void setup()
   webSocket.begin();
   webSocket.onEvent(webSocketEvent);
   
-  Serial.println("WiFi connected");
+  //home(); // to calibrate, reset when done, uncomment and reflash when done
 
-  home();
+  Serial.println("WiFi connected");
+  Serial.println("Loaded absolute steps from flash: " + String(absolute_steps));
 }
 
 void loop()
 {
-  readEndstops();
-
   webSocket.loop();
   server.handleClient();
   
-  // endstops reached, immediately stop for this direction
-  if(endstop && stepsRemaining < 0) {
+  // low end reached, immediately stop for this direction
+  if(absolute_steps <= 0 && stepsRemaining < 0) {
     Serial.println("low endstop reached");
     stepsRemaining = 0;
   }
@@ -404,6 +389,9 @@ void loop()
   }
   else {
     // turn off stepper pins to reduce RFI and power consumption. We don't need holding torque
+    // write absolute value to 'eeprom' (not actually eeprom on esp8266, but flash, so frequent writes are not as bad)
+    EEPROM.put(0, absolute_steps);
+    EEPROM.commit();
     digitalWrite(motorPin1, LOW);
     digitalWrite(motorPin2, LOW);
     digitalWrite(motorPin3, LOW);
