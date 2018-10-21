@@ -1,83 +1,112 @@
-<!--
-	To test the connection and html page without having to flash the uC all the time use this file 
-	and the dummy server 'server.py'. Make sure to change the websocket ip back, when copying stuff
-	from here to the code.
--->
 <!DOCTYPE html>
 <html>
 <head>
 <meta name = "viewport" content = "width = device-width, initial-scale = 1.0, maximum-scale = 1.0, user-scalable=0">
 <title>MagLoop Remote Tuner</title>
 <style>
-body { background-color: #aaa; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; margin: 0 auto; width: auto; max-width: 20em }
+body { background-color: #ddd; font-family: Arial, Helvetica, Sans-Serif; Color: #000000; margin: 0 auto; width: auto; max-width: 20em }
 a { text-decoration: none; display: inline-block; padding: 8px 16px; font-size: 25pt}
 a:hover { background-color: #ccc; color: black; }
-.stepbutton { border-radius: 35%; background-color: #f1f1f1; color: black; }
+#tune_canvas { margin: 3em auto 1em auto; display: block; border:2px solid #000000; background-color: #aca }
+.container { display:flex; justify-content: flex-end; }
+.stepbutton { border-radius: 35%; background-color: #f1f1f1; margin-top: -.3em; margin-bottom: -.3em; color: black; }
 .buttons { width:5em; flex-grow:1; text-align: center; }
 .status  { width:5em; flex-grow:1; text-align: center; }
-.statusbubble  { border-radius: 100%; background-color: gray; width: 1.5em; height: 1.5em; margin: 0 auto; }
-.good { background-color: green; }
+.statusbubble  { border-radius: 100%; background-color: gray; width: 1.5em; height: 1.5em; margin: -.5em auto; }
+.good { background-color: #478847; }
 .neutral { background-color: gray; }
-.bad  { background-color: red; }
+.bad  { background-color: #bf3232; }
 </style>
 <script>
 var websock;
+var maxSteps = 2000;
+var pos80m   = 1800; // rough pos of 80m tune area
+var pos40m   = 900;  // rough pos of 80m tune area
+var pos30m   = 650;  // rough pos of 80m tune area
+var pos20m   = 450;  // rough pos of 80m tune area
+var pos10m   = 200;  // rough pos of 80m tune area
+
 function start() {
-  websock = new WebSocket('ws://' + "127.0.0.1" + ':9001/');
-  websock.onopen = function(evt) { console.log('websock open'); document.querySelector("#connection").classList.replace("bad", "good"); };
+  websock = new WebSocket('ws://127.0.0.1:9001/');
+  websock.onopen = function(evt) { 
+    console.log('websock open');
+    document.querySelector("#connection").classList.replace("bad", "good");
+    drawBands(); 
+  };
   websock.onclose = function(evt) { console.log('websock close'); document.querySelector("#connection").classList.replace("good", "bad"); };
   websock.onerror = function(evt) { console.log(evt); };
-  websock.onmessage = function(evt) { console.log(evt); handleEndstops(evt); };
+  websock.onmessage = function(evt) { console.log(evt); handleMessages(evt); };
 }
 function buttonclick(e) {
   websock.send(e.id);
 }
-function handleEndstops(e) {
-  if(e.data == "endstop_up") {
-  	document.querySelector("#endstop_up").classList.add("bad");
-  }
-  else if (e.data == "endstop_down") {
-  	document.querySelector("#endstop_down").classList.add("bad");
+function handleMessages(e) {
+  if(e.data == "endstop") {
+    document.querySelector("#endstop").classList.add("bad");
   }
   else if (e.data == "endstop_ok") {
-  	document.querySelector("#endstop_up").classList.remove("bad");
-  	document.querySelector("#endstop_down").classList.remove("bad");
+    document.querySelector("#endstop").classList.remove("bad");
   }
+  else if (e.data.startsWith("absolute_steps")) {
+    var absolute_steps = parseInt(e.data.split(" ")[1], 10);
+    updateCanvas(absolute_steps);
+  }
+}
+function drawBands() {
+  var canvas = document.getElementById("tune_canvas");
+  var ctx = canvas.getContext("2d");
+  // draw rough estimates for the bands
+  ctx.font = "10px sans-serif";
+  ctx.fillText("80m", pos80m / maxSteps * canvas.width, 45);
+  ctx.fillText("40m", pos40m / maxSteps * canvas.width, 45);
+  ctx.fillText("30m", pos30m / maxSteps * canvas.width, 45);
+  ctx.fillText("20m", pos20m / maxSteps * canvas.width, 45);
+  ctx.fillText("10m", pos10m / maxSteps * canvas.width, 45);
+}
+function updateCanvas(v) {
+  var canvas = document.getElementById("tune_canvas");
+  var ctx = canvas.getContext("2d");
+  var needle_pos = v / maxSteps * canvas.width;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawBands();
+
+  ctx.beginPath();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "#a44";
+  ctx.moveTo(needle_pos, 0);
+  ctx.lineTo(needle_pos, 50);
+  ctx.stroke();
 }
 </script>
 </head>
 <body onload="javascript:start();">
 <h1 style="text-align: center;">MagLoop Tuner</h1>
-<div id=container style="display:flex; justify-content: flex-end;">
-<div class="buttons">
-<a href="#" id="up_1"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
-<p>1</p>
-<a href="#" id="down_1" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+<div class="container">
+    <div class="buttons">
+    <a href="#" id="up_1"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+    <p>1</p>
+    <a href="#" id="down_1" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+    </div>
+    <div class="buttons">
+    <a href="#" id="up_10"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+    <p>10</p>
+    <a href="#" id="down_10" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+    </div>
+    <div class="buttons">
+    <a href="#" id="up_100"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
+    <p>100</p>
+    <a href="#" id="down_100" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
+    </div>
 </div>
-<div class="buttons">
-<a href="#" id="up_10"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
-<p>10</p>
-<a href="#" id="down_10" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
-</div>
-<div class="buttons">
-<a href="#" id="up_100"   class="stepbutton" onclick="buttonclick(this);">&uArr;</a>
-<p>100</p>
-<a href="#" id="down_100" class="stepbutton" onclick="buttonclick(this);">&dArr;</a>
-</div>
-</div>
-<div id=container style="display:flex; justify-content: flex-end; margin-top: 3em">
-	<div class="status">
-		<p>endstop</p>
-		<div id=endstop_down class="statusbubble neutral"></div>
-		<p style="font-size:8pt">low cap</p>
-	</div>
-	<div class="status">
-		<p>Connection</p>
-		<div id=connection class="statusbubble bad"></div>
-	</div>
-	<div class="status">
-		<p>endstop</p>
-		<div id=endstop_up class="statusbubble neutral"></div>
-		<p style="font-size:8pt">high cap</p>
-	</div>
+<canvas id="tune_canvas" width="250" height="50"></canvas> 
+<div class="container">
+    <div class="status">
+        <p>endstop</p>
+        <div id=endstop class="statusbubble neutral"></div>
+    </div>
+    <div class="status">
+        <p>Connection</p>
+        <div id=connection class="statusbubble bad"></div>
+    </div>
 </div>
